@@ -6,7 +6,7 @@ import math
 
 FILE_MATCHES = 1
 SENTENCE_MATCHES = 3
-
+DELTA = 4
 
 def main():
     if len(sys.argv) != 2:
@@ -21,9 +21,10 @@ def main():
     file_idfs = compute_idfs(file_words)
 
     while True:
-        query = set(tokenize(input("Query: ")))
-        if query == "exit":
+        instr = input("Query: ")
+        if instr == "exit":
             return
+        query = set(tokenize(instr))
         # Determine top file matches according to TF-IDF
         filenames = top_files(query, file_words, file_idfs, n=FILE_MATCHES)
 
@@ -97,10 +98,14 @@ def top_sentences(query, sentences, idfs, n):
         score = 0
         density = 0
         for word in query:
-            if word not in sentences[s]:
-                continue
-            density += sentences[s].count(word)
-            score += idfs.get(word, 0)
+            fl = False
+            for s_word in sentences[s]:
+                if dld(word, s_word) > DELTA:
+                    continue
+                fl = True
+                density += 1
+            if fl:
+                score += idfs.get(word, 0)
 
         density /= len(sentences[s])
         scores.append((s, score, density))
@@ -111,28 +116,21 @@ def top_sentences(query, sentences, idfs, n):
 
 def dld(s1, s2):
     d = {}
-    lenstr1 = len(s1)
-    lenstr2 = len(s2)
-    for i in range(-1, lenstr1 + 1):
+    for i in range(-1, len(s1) + 1):
         d[(i, -1)] = i + 1
-    for j in range(-1, lenstr2 + 1):
+    for j in range(-1, len(s2) + 1):
         d[(-1, j)] = j + 1
-
-    for i in range(lenstr1):
-        for j in range(lenstr2):
-            if s1[i] == s2[j]:
-                cost = 0
-            else:
-                cost = 1
+    for i in range(len(s1)):
+        for j in range(len(s2)):
+            cost = 0 if s1[i] == s2[j] else 1
             d[(i, j)] = min(
-                d[(i - 1, j)] + 1,  # deletion
-                d[(i, j - 1)] + 1,  # insertion
-                d[(i - 1, j - 1)] + cost,  # substitution
+                d[(i - 1, j)] + 1,
+                d[(i, j - 1)] + 1,
+                d[(i - 1, j - 1)] + cost,
             )
             if i and j and s1[i] == s2[j - 1] and s1[i - 1] == s2[j]:
-                d[(i, j)] = min(d[(i, j)], d[i - 2, j - 2] + 1)  # transposition
-
-    return d[lenstr1 - 1, lenstr2 - 1]
+                d[(i, j)] = min(d[(i, j)], d[i - 2, j - 2] + 1)
+    return d[len(s1) - 1, len(s2) - 1]
 
 
 if __name__ == "__main__":
