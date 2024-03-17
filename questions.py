@@ -31,9 +31,8 @@ def main():
 
         # Extract sentences from top files
         sentences = dict()
-        files = load_files(sys.argv[1])
         for filename in filenames:
-            for passage in files[filename].split("\n"):
+            for passage in get_passages(os.path.join(sys.argv[1], filename)):
                 for sentence in nltk.sent_tokenize(passage):
                     tokens = tokenize(sentence)
                     if tokens:
@@ -46,15 +45,6 @@ def main():
         matches = top_sentences(query, sentences, idfs, n=SENTENCE_MATCHES)
         for match in matches:
             print(match)
-
-
-def load_files(directory):
-    res = {}
-    for (dirpath, _, filenames) in os.walk(directory):
-        for filename in filenames:
-            with open(os.path.join(dirpath, filename), encoding="utf-8") as f:
-                res[filename] = f.read()
-    return res
 
 
 def tokenize(document, stopwords=None):
@@ -77,6 +67,13 @@ def tokenize_dir(directory):
                 for line in f:
                     res[filename].extend(tokenize(line.lower(), stopwords))
     return res
+
+
+def get_passages(filepath):
+    aboba = ""
+    with open(filepath, encoding="utf-8") as f:
+        aboba = f.read()
+    return aboba.split("\n")
 
 
 def compute_idfs(documents):
