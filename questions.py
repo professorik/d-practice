@@ -5,19 +5,20 @@ import os
 import math
 
 FILE_MATCHES = 1
-SENTENCE_MATCHES = 3
-DELTA = 4
+SENTENCE_MATCHES = 1
+DELTA = 0
+LANGUAGE = "english"
+
 
 def main():
-    if len(sys.argv) != 2:
-        sys.exit("Usage: python questions.py corpus-en")
+    if len(sys.argv) < 2:
+        sys.exit("Usage: python questions.py corpus-uk-lite uk")
+    if len(sys.argv) == 3:
+        global LANGUAGE
+        LANGUAGE = {"en": "english", "uk": "ukrainian"}.get(sys.argv[2], LANGUAGE)
 
     # Calculate IDF values across files
-    files = load_files(sys.argv[1])
-    file_words = {
-        filename: tokenize(files[filename])
-        for filename in files
-    }
+    file_words = tokenize_dir(sys.argv[1])
     file_idfs = compute_idfs(file_words)
 
     while True:
@@ -30,6 +31,7 @@ def main():
 
         # Extract sentences from top files
         sentences = dict()
+        files = load_files(sys.argv[1])
         for filename in filenames:
             for passage in files[filename].split("\n"):
                 for sentence in nltk.sent_tokenize(passage):
@@ -50,17 +52,31 @@ def load_files(directory):
     res = {}
     for (dirpath, _, filenames) in os.walk(directory):
         for filename in filenames:
-            with open(os.path.join(dirpath, filename)) as f:
+            with open(os.path.join(dirpath, filename), encoding="utf-8") as f:
                 res[filename] = f.read()
     return res
 
 
-def tokenize(document):
-    stopwords = set(nltk.corpus.stopwords.words("english"))
+def tokenize(document, stopwords=None):
+    if stopwords is None:
+        stopwords = set(nltk.corpus.stopwords.words(LANGUAGE))
 
     tokens = nltk.word_tokenize(document.lower())
     tokens = [t for t in tokens if not (t in string.punctuation or t in stopwords)]
     return tokens
+
+
+def tokenize_dir(directory):
+    stopwords = set(nltk.corpus.stopwords.words(LANGUAGE))
+
+    res = {}
+    for (dirpath, _, filenames) in os.walk(directory):
+        for filename in filenames:
+            with open(os.path.join(dirpath, filename), encoding="utf-8") as f:
+                res[filename] = []
+                for line in f:
+                    res[filename].extend(tokenize(line.lower(), stopwords))
+    return res
 
 
 def compute_idfs(documents):
