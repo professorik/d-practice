@@ -18,8 +18,8 @@ def main():
         LANGUAGE = {"en": "english", "uk": "ukrainian"}.get(sys.argv[2], LANGUAGE)
 
     # Calculate IDF values across files
-    file_words = tokenize_dir(sys.argv[1])
-    file_idfs = compute_idfs(file_words)
+    file_words = tokenize_dir(sys.argv[1])  # SELECT file_words FROM DB.dir (file-tokens)
+    file_idfs = compute_idfs(file_words)  # SELECT idfs FROM DB.dir (token-idfs)
 
     while True:
         instr = input("Query: ")
@@ -29,6 +29,7 @@ def main():
         # Determine top file matches according to TF-IDF
         filenames = top_files(query, file_words, file_idfs, n=FILE_MATCHES)
 
+        # SELECT sentences and their idfs FROM files where file in FILES
         # Extract sentences from top files
         sentences = dict()
         for filename in filenames:
@@ -70,10 +71,16 @@ def tokenize_dir(directory):
 
 
 def get_passages(filepath):
-    aboba = ""
+    res = [""]
     with open(filepath, encoding="utf-8") as f:
-        aboba = f.read()
-    return aboba.split("\n")
+        for line in f:
+            lines = line.split("\n")
+            res[-1] = res[-1].join(lines[0])
+            if len(lines) == 0:
+                continue
+            for i in range(1, len(lines)):
+                res.append(lines[i])
+    return res
 
 
 def compute_idfs(documents):
