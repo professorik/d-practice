@@ -13,12 +13,10 @@ LANGUAGE = "english"
 def main():
     if len(sys.argv) < 2:
         sys.exit("Usage: python questions.py corpus-uk-lite uk")
-    if len(sys.argv) == 3:
-        global LANGUAGE
-        LANGUAGE = {"en": "english", "uk": "ukrainian"}.get(sys.argv[2], LANGUAGE)
 
     file_words = tokenize_dir(sys.argv[1])
     file_idfs = compute_idfs(file_words)
+    print(len(file_words))
 
     while True:
         instr = input("Query: ")
