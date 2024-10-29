@@ -1,44 +1,57 @@
 import nltk
 import sys
-import string
+import pandas as pd
+import numpy as np
 import os
-import math
+import re
 
 FILE_MATCHES = 2
-LANGUAGE = "english"
-stopwords = set()
+
+damping_fun = np.sqrt
 
 
 def main():
     if len(sys.argv) < 2:
-        sys.exit("Usage: python questions.py corpus-uk-lite uk")
+        sys.exit("Usage: python questions.py corpus-en")
 
-    global stopwords
-    stopwords = set(get_lines("stopwords-en.txt"))
+    print_dir_info(sys.argv[1])
+
     file_words = tokenize_dir(sys.argv[1])
-    file_idfs = compute_idfs(file_words)
-    #print(file_idfs)
+    print_file_tockens_info(file_words)
 
-    instr = "space rocket industry"
-    query = set(tokenize(instr))
-    filenames = top_files(query, file_words, file_idfs, n=FILE_MATCHES)
-    print(filenames)
+    tokens, freq = get_frequencies(file_words)
+    tf = pd.DataFrame(freq, index=tokens)
+    print(tf)
+    tf = tf.apply(damping_fun)
+    tfidf = tf_idf_transform(tf)
+    print(tfidf)
+    print(doc_cos_dist(tfidf))
+    print(doc_binary(tfidf))
 
-    # sentences = dict()
-    # for filename in filenames:
-    #     for passage in get_lines(os.path.join(sys.argv[1], filename)):
-    #         for sentence in nltk.sent_tokenize(passage):
-    #             tokens = tokenize(sentence)
-    #             if tokens:
-    #                 sentences[sentence] = tokens
-    #
-    # idfs = compute_idfs(sentences)
-    # print(idfs)
+
+def tf_idf_transform(tf):
+    N = len(tf.columns)
+    idf = np.log(N / (tf > 0).sum(axis = 1))
+    return tf.multiply(idf, axis="index")
+
+
+def print_file_tockens_info(file_words):
+    for file in file_words:
+        print(f"Number of tokens ({file}):\t\t {len(file_words[file])}")
+
+
+def print_dir_info(directory):
+    for (dirpath, _, filenames) in os.walk(directory):
+        print(f"Docs in corpus:\t\t {len(filenames)}")
+        for filename in filenames:
+            with open(os.path.join(dirpath, filename), encoding="utf-8") as f:
+                print(f"{filename} size:\t\t {len(f.read())}")
 
 
 def tokenize(document):
+    stopwords = set(get_lines("stopwords-en.txt"))
     tokens = nltk.word_tokenize(document.lower())
-    tokens = [t for t in tokens if not (t in string.punctuation or t in stopwords)]
+    tokens = [t for t in tokens if not t in stopwords and re.search(f"^([a-z])([a-z\-\']*)$", t)]
     return tokens
 
 
@@ -66,32 +79,63 @@ def get_lines(filepath):
     return res
 
 
-def compute_idfs(documents):
-    dn = len(documents)
+def get_frequencies(documents):
     res = {}
+    appeared = set()
     for doc in documents.values():
-        appeared = set()
-        for token in doc:
-            if token in appeared:
-                continue
-            res[token] = res.get(token, 0) + 1
-            appeared.add(token)
-    for token in res:
-        res[token] = math.log(dn / res[token])
+        appeared.update(doc)
+    tokens: list = list(appeared)
+    tokens.sort()
+    for doc in documents:
+        res[doc] = []
+        for token in tokens:
+            res[doc].append(documents[doc].count(token))
+    return tokens, res
+
+
+def cosine_distance(a, b):
+    return 1 - np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+
+
+def doc_cos_dist(tfidf):
+    N = len(tfidf.columns)
+    res = np.zeros((N, N), dtype=float)
+    for i in range(N - 1):
+        for j in range(i + 1, N):
+            res[i][j] = res[j][i] = cosine_distance(tfidf.iloc[:, i].tolist(), tfidf.iloc[:, j].tolist())
+    return pd.DataFrame(res, index=tfidf.columns, columns=tfidf.columns)
+
+
+def doc_binary(tfidf):
+    res = tfidf.copy()
+    res[res != 0] = 1
+    res = res.astype(int)
     return res
 
 
-def top_files(query, files, idfs, n):
-    scores = []
-    for f in files:
-        score = 0
-        for word in query:
-            tf = files[f].count(word) / len(files[f])
-            score += tf * idfs.get(word, 0)
-        scores.append((f, score))
-    scores.sort(key=lambda item: item[1], reverse=True)
-    return [item[0] for item in scores][:n]
+def test():
+    freq = {}
+    N = 8
+    for i in range(1, N + 1):
+        freq[f"Doc {i}"] = []
+    tokens: list = []
+    with open("test.txt", "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.split("\n")[0]
+            lines = line.split(" ")
+            if len(lines) != N + 1: continue
+            tokens.append(lines[0])
+            for i in range(1, len(lines)):
+                freq[f"Doc {i}"].append(int(lines[i]))
+    tf = pd.DataFrame(freq, index=tokens)
+    print(tf)
+    tf = tf.apply(damping_fun)
+    tfidf = tf_idf_transform(tf)
+    print(tfidf)
+    print(doc_cos_dist(tfidf))
+    print(doc_binary(tfidf))
 
 
 if __name__ == "__main__":
     main()
+    #test()
