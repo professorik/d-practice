@@ -9,6 +9,8 @@ FILE_MATCHES = 2
 
 damping_fun = np.sqrt
 
+#nltk.download('punkt_tab')
+
 
 def main():
     if len(sys.argv) < 2:
@@ -51,7 +53,7 @@ def print_dir_info(directory):
 def tokenize(document):
     stopwords = set(get_lines("stopwords-en.txt"))
     tokens = nltk.word_tokenize(document.lower())
-    tokens = [t for t in tokens if not t in stopwords and re.search(f"^([a-z])([a-z\-\']*)$", t)]
+    tokens = [t for t in tokens if not t in stopwords and re.search(f"^([a-z])([a-z\\-\\']*)$", t)]
     return tokens
 
 
